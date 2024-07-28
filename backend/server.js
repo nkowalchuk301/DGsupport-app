@@ -270,11 +270,19 @@ app.post('/webhook/typeform', async (request, response) => {
 });
 
 const verifySignature = function(receivedSignature, payload){
+  console.log('Expected Signature:', receivedSignature);
+  console.log('Computed Signature:', `sha256=${hash}`);
+
   const hash = crypto
     .createHmac('sha256', webhookSecret)
     .update(payload)
     .digest('base64')
+    .replace(/\+/g, '-') // Replace '+' with '-'
+    .replace(/\//g, '_') // Replace '/' with '_'
+    .replace(/=+$/, ''); // Remove padding
   return receivedSignature === `sha256=${hash}`
 }
+
+
 
 app.get('/', (req, res) => res.send('Backend server is running!'));
