@@ -254,7 +254,7 @@ app.post('/webhook/typeform', async (request, response) => {
   const isValid = verifySignature(signature, request.body.toString())
   console.log('isvalid', isValid)
   if (!isValid) {
-    throw new Error('Webhook signature is not valid.');  
+    throw new Error('Webhook signature is not valid.', process.env.TYPEFORM_WEBHOOK_SECRET);  
   }
 
   response.sendStatus(200)
