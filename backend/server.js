@@ -259,9 +259,8 @@ app.get('/api/active-discord-users', async (req, res) => {
   }
 });
 
-app.post('/api/typeform-webhook', (req, res) => {
-  console.log('Received webhook:', req.body);
-  res.status(200).send('Webhook receivedd');
+app.get('/api/typeform-webhook', (req, res) => {
+  res.status(200).send('Server is running');
 });
 
 app.get('/', (req, res) => res.send('Backend server is running!'));
