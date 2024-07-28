@@ -279,8 +279,14 @@ app.post('/webhook/typeform', async (request, response) => {
       };
     });
 
-    // Prepare the message content
+    // Prepare the message content with better formatting
     const messageContent = answers.map(answer => `**${answer.title}:** ${answer.response}`).join('\n');
+    const formattedMessage = `
+****************************************************
+**New Typeform Submission:**
+${messageContent}
+****************************************************
+    `;
 
     // Send data to Discord channel
     const guild = client.guilds.cache.get(process.env.DISCORD_GUILD_ID);
@@ -310,8 +316,7 @@ app.post('/webhook/typeform', async (request, response) => {
     }
 
     try {
-      await channel.send(`****************************************************
-        \nNew Typeform Submission:\n${messageContent}`);
+      await channel.send(formattedMessage);
       console.log('Message sent to Discord channel');
     } catch (error) {
       console.error('Error sending message to Discord channel:', error);
