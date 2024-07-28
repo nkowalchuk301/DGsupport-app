@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto')
 const bodyParser = require('body-parser');
 const { Client, GatewayIntentBits, ChannelType, PermissionsBitField } = require('discord.js');
 const cors = require('cors');
