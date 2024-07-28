@@ -310,7 +310,8 @@ app.post('/webhook/typeform', async (request, response) => {
     }
 
     try {
-      await channel.send(`New Typeform Submission:\n${messageContent}`);
+      await channel.send(`****************************************************
+        \nNew Typeform Submission:\n${messageContent}`);
       console.log('Message sent to Discord channel');
     } catch (error) {
       console.error('Error sending message to Discord channel:', error);
