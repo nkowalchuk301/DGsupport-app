@@ -270,51 +270,33 @@ app.post('/webhook/typeform', async (request, response) => {
   const { event_type, form_response } = JSON.parse(payload);
 
   if (event_type === 'form_response') {
-    const handleField = form_response.definition.fields.find(a => a.ref === 'handle');
-    
-    if (handleField) {
-      const handleId = handleField.id;
-      const handleAnswer = form_response.answers.find(a => a.field.id === handleId);
+    // Extracting the answers and formatting them for Discord
+    const answers = form_response.answers.map(answer => {
+      const fieldDefinition = form_response.definition.fields.find(field => field.id === answer.field.id);
+      return {
+        title: fieldDefinition ? fieldDefinition.title : 'Unknown Field',
+        response: answer[Object.keys(answer).filter(key => key !== 'field')[0]] // Get the value dynamically
+      };
+    });
 
-      if (handleAnswer) {
-        const handle = handleAnswer.text;
-        io.sockets.emit('webhook_received', { handle });
-        
-        // Send data to Discord channel
-        const guild = client.guilds.cache.get(process.env.DISCORD_GUILD_ID);
-        if (!guild) {
-          console.error('Guild not found');
-          return;
-        }
-        
-        const channel = guild.channels.cache.get(process.env.DISCORD_CHANNEL_ID);
-        if (!channel) {
-          console.error('Channel not found');
-          return;
-        }
+    // Prepare the message content
+    const messageContent = answers.map(answer => `**${answer.title}:** ${answer.response}`).join('\n');
 
-        const messageContent = `
-        New Typeform Submission:
-        - First name: ${form_response.answers.find(a => a.field.id === 'RpYoGr35uuCH')?.text || 'N/A'}
-        - Last name: ${form_response.answers.find(a => a.field.id === 'XhfjtC4qMokE')?.text || 'N/A'}
-        - Email: ${form_response.answers.find(a => a.field.id === 'egC4sKHsDUTC')?.email || 'N/A'}
-        - Phone number: ${form_response.answers.find(a => a.field.id === 'U5oJ2d0i1Pkq')?.phone_number || 'N/A'}
-        - Company: ${form_response.answers.find(a => a.field.id === 'TuzTxOSuZMYq')?.text || 'N/A'}
-        - Address: ${form_response.answers.find(a => a.field.id === 's0JWj3YvCnhv')?.text || 'N/A'}
-        - City/Town: ${form_response.answers.find(a => a.field.id === 'Np8Rnwfs4GOB')?.text || 'N/A'}
-        - State/Region/Province: ${form_response.answers.find(a => a.field.id === 'wJcrDyEOmThM')?.text || 'N/A'}
-        - Zip/Post Code: ${form_response.answers.find(a => a.field.id === 'nKl4kKYL6SeW')?.text || 'N/A'}
-        - Country: ${form_response.answers.find(a => a.field.id === '9KsVRrzDRJc7')?.text || 'N/A'}
-        - IT Needs: ${form_response.answers.find(a => a.field.id === 'w1JgBm7d3nhm')?.text || 'N/A'}
-        `;
-
-        await channel.send(messageContent);
-      } else {
-        console.error('Handle answer not found');
-      }
-    } else {
-      console.error('Handle field not found');
+    // Send data to Discord channel
+    const guild = client.guilds.cache.get(process.env.DISCORD_GUILD_ID);
+    if (!guild) {
+      console.error('Guild not found');
+      return;
     }
+
+    const channel = guild.channels.cache.get(process.env.DISCORD_CHANNEL_ID);
+    if (!channel) {
+      console.error('Channel not found');
+      return;
+    }
+
+    await channel.send(`New Typeform Submission:\n${messageContent}`);
+    console.log('Message sent to Discord channel');
   }
 });
 
