@@ -30,6 +30,8 @@ client.once('ready', () => console.log('Discord bot is ready!'));
 
 client.login(process.env.DISCORD_BOT_TOKEN);
 
+app.locals.discordClient = client;
+
 const server = app.listen(port, () => console.log(`Server running on port ${port}`));
 
 const wss = new WebSocketServer({ noServer: true });
@@ -246,6 +248,11 @@ app.post('/api/join-chat', async (req, res) => {
   }
 });
 
+// Use the Typeform webhook handler
 app.post('/webhook/typeform', handleTypeformWebhook);
+
+client.on('messageCreate', async message => {
+  // Handle messages if needed
+});
 
 app.get('/', (req, res) => res.send('Backend server is running!'));
