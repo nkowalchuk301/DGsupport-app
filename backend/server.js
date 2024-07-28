@@ -246,9 +246,6 @@ app.post('/api/join-chat', async (req, res) => {
   }
 });
 
-app.post('/webhook/typeform', handleTypeformWebhook, (req, res) => {
-  console.log('Received data:', req.body);
-  res.send('Webhook received');
-});
+app.post('/webhook/typeform', handleTypeformWebhook);
 
 app.get('/', (req, res) => res.send('Backend server is running!'));
