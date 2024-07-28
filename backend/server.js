@@ -254,9 +254,9 @@ app.post('/api/join-chat', async (req, res) => {
 
 app.post('/webhook/typeform', async (request, response) => {
   console.log('~> webhook received');
-  // security check, let's make sure request comes from typeform
+  
   const signature = request.headers['typeform-signature'];
-  const payload = request.rawBody; // Use raw body here
+  const payload = request.rawBody;
   const isValid = verifySignature(signature, payload);
 
   console.log('isValid:', isValid);
@@ -270,11 +270,54 @@ app.post('/webhook/typeform', async (request, response) => {
   const { event_type, form_response } = JSON.parse(payload);
 
   if (event_type === 'form_response') {
-    const handleId = form_response.definition.fields.find(a => a.ref === 'handle').id;
-    const handle = form_response.answers.find(a => a.field.id === handleId).text;
-    io.sockets.emit('webhook_received', { handle });
+    const handleField = form_response.definition.fields.find(a => a.ref === 'handle');
+    
+    if (handleField) {
+      const handleId = handleField.id;
+      const handleAnswer = form_response.answers.find(a => a.field.id === handleId);
+
+      if (handleAnswer) {
+        const handle = handleAnswer.text;
+        io.sockets.emit('webhook_received', { handle });
+        
+        // Send data to Discord channel
+        const guild = client.guilds.cache.get(process.env.DISCORD_GUILD_ID);
+        if (!guild) {
+          console.error('Guild not found');
+          return;
+        }
+        
+        const channel = guild.channels.cache.get(process.env.DISCORD_CHANNEL_ID);
+        if (!channel) {
+          console.error('Channel not found');
+          return;
+        }
+
+        const messageContent = `
+        New Typeform Submission:
+        - First name: ${form_response.answers.find(a => a.field.id === 'RpYoGr35uuCH')?.text || 'N/A'}
+        - Last name: ${form_response.answers.find(a => a.field.id === 'XhfjtC4qMokE')?.text || 'N/A'}
+        - Email: ${form_response.answers.find(a => a.field.id === 'egC4sKHsDUTC')?.email || 'N/A'}
+        - Phone number: ${form_response.answers.find(a => a.field.id === 'U5oJ2d0i1Pkq')?.phone_number || 'N/A'}
+        - Company: ${form_response.answers.find(a => a.field.id === 'TuzTxOSuZMYq')?.text || 'N/A'}
+        - Address: ${form_response.answers.find(a => a.field.id === 's0JWj3YvCnhv')?.text || 'N/A'}
+        - City/Town: ${form_response.answers.find(a => a.field.id === 'Np8Rnwfs4GOB')?.text || 'N/A'}
+        - State/Region/Province: ${form_response.answers.find(a => a.field.id === 'wJcrDyEOmThM')?.text || 'N/A'}
+        - Zip/Post Code: ${form_response.answers.find(a => a.field.id === 'nKl4kKYL6SeW')?.text || 'N/A'}
+        - Country: ${form_response.answers.find(a => a.field.id === '9KsVRrzDRJc7')?.text || 'N/A'}
+        - IT Needs: ${form_response.answers.find(a => a.field.id === 'w1JgBm7d3nhm')?.text || 'N/A'}
+        `;
+
+        await channel.send(messageContent);
+      } else {
+        console.error('Handle answer not found');
+      }
+    } else {
+      console.error('Handle field not found');
+    }
   }
 });
+
 
 const verifySignature = function(receivedSignature, payload) {
   const hash = crypto
