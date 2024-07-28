@@ -272,29 +272,37 @@ app.post('/webhook/typeform', async (request, response) => {
     // Extracting the answers and formatting them for Discord
     const answers = form_response.answers.map(answer => {
       const fieldDefinition = form_response.definition.fields.find(field => field.id === answer.field.id);
-      const responseType = Object.keys(answer).filter(key => key !== 'field')[0];
+      let responseText = '';
+
+      switch (answer.type) {
+        case 'text':
+        case 'email':
+        case 'phone_number':
+        case 'date':
+          responseText = answer[answer.type];
+          break;
+        case 'choice':
+          responseText = answer.choice.label;
+          break;
+        case 'choices':
+          responseText = answer.choices.labels.join(', ');
+          break;
+        default:
+          responseText = 'Unknown response type';
+      }
+
       return {
         title: fieldDefinition ? fieldDefinition.title : 'Unknown Field',
-        response: answer[responseType]
+        response: responseText
       };
     });
 
     // Prepare the message content with better formatting
-    const messageContent = answers.map(answer => {
-      let response = answer.response;
-      if (Array.isArray(response)) {
-        response = response.join(', ');
-      } else if (typeof response === 'object' && response !== null) {
-        response = Object.values(response).join(', ');
-      }
-      return `**${answer.title}:** ${response}`;
-    }).join('\n');
-
+    const messageContent = answers.map(answer => `**${answer.title}:** ${answer.response}`).join('\n');
     const formattedMessage = `
 ___________________________
 **New Typeform Submission:**
 ${messageContent}
-___________________________
     `;
 
     // Send data to Discord channel
