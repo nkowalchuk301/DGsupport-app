@@ -298,11 +298,12 @@ app.post('/webhook/typeform', async (request, response) => {
     });
 
     // Prepare the message content with better formatting
-    const messageContent = answers.map(answer => `**${answer.title}:** ${answer.response}`).join('\n');
+    const messageContent = answers.map(answer => `**${answer.title}:**\n${answer.response}`).join('\n\n');
     const formattedMessage = `
-___________________________
-**New Typeform Submission:**
+**New Typeform Submission**
+-------------------------
 ${messageContent}
+-------------------------
     `;
 
     // Send data to Discord channel
