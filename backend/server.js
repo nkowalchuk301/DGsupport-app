@@ -3,7 +3,7 @@ const bodyParser = require('body-parser');
 const { Client, GatewayIntentBits, ChannelType, PermissionsBitField } = require('discord.js');
 const cors = require('cors');
 const { WebSocketServer } = require('ws');
-const handleTypeformWebhook = require('./typeformHandler');
+const webhookSecret = process.env.TYPEFORM_WEBHOOK_SECRET 
 require('dotenv').config();
 
 let webSocketClients = [];
@@ -246,6 +246,34 @@ app.post('/api/join-chat', async (req, res) => {
   }
 });
 
-app.post('/webhook/typeform', handleTypeformWebhook);
+app.post('/typeform/webhook', async (request, response) => {
+  console.log('~> webhook received');
+  // security check, let's make sure request comes from typeform
+  const signature = request.headers['typeform-signature']
+  const isValid = verifySignature(signature, request.body.toString())
+  console.log('isvalid', isValid)
+  if (!isValid) {
+    throw new Error('Webhook signature is not valid.');  
+  }
+
+  response.sendStatus(200)
+
+  const { event_type, form_response } = JSON.parse(request.body);
+
+  if (event_type === 'form_response') {
+    const handleId = form_response.definition.fields.find(a => a.ref === 'handle').id
+ 
+    const handle = form_response.answers.find(a => a.field.id === handleId).text
+    io.sockets.emit('webhook_received', { handle });
+  }
+});
+
+const verifySignature = function(receivedSignature, payload){
+  const hash = crypto
+    .createHmac('sha256', webhookSecret)
+    .update(payload)
+    .digest('base64')
+  return receivedSignature === `sha256=${hash}`
+}
 
 app.get('/', (req, res) => res.send('Backend server is running!'));
