@@ -1,17 +1,23 @@
 const express = require('express');
-const crypto = require('crypto')
+const crypto = require('crypto');
 const bodyParser = require('body-parser');
 const { Client, GatewayIntentBits, ChannelType, PermissionsBitField } = require('discord.js');
 const cors = require('cors');
 const { WebSocketServer } = require('ws');
-const webhookSecret = process.env.TYPEFORM_WEBHOOK_SECRET 
 require('dotenv').config();
+
+const webhookSecret = process.env.TYPEFORM_WEBHOOK_SECRET;
 
 let webSocketClients = [];
 const app = express();
 const port = process.env.PORT || 5000;
 
-app.use(bodyParser.json());
+// Middleware to capture raw body
+app.use(bodyParser.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString();
+  }
+}));
 app.use(cors({ origin: 'https://digitalgenesis.support' }));
 
 const client = new Client({
@@ -55,7 +61,6 @@ async function getActiveDiscordUsers(guild) {
   
   return activeUsers;
 }
-
 
 wss.on('connection', (ws) => {
   webSocketClients.push(ws);
@@ -250,29 +255,28 @@ app.post('/api/join-chat', async (req, res) => {
 app.post('/webhook/typeform', async (request, response) => {
   console.log('~> webhook received');
   // security check, let's make sure request comes from typeform
-  const signature = request.headers['typeform-signature']
-  const isValid = verifySignature(signature, request.body.toString())
-  console.log('isvalid', isValid)
+  const signature = request.headers['typeform-signature'];
+  const payload = request.rawBody; // Use raw body here
+  const isValid = verifySignature(signature, payload);
+
+  console.log('isValid:', isValid);
   if (!isValid) {
-    throw new Error('Webhook signature is not valid.', process.env.TYPEFORM_WEBHOOK_SECRET);  
+    console.error('Webhook signature is not valid.');
+    return response.status(401).send('Unauthorized');
   }
 
-  response.sendStatus(200)
+  response.sendStatus(200);
 
-  const { event_type, form_response } = JSON.parse(request.body);
+  const { event_type, form_response } = JSON.parse(payload);
 
   if (event_type === 'form_response') {
-    const handleId = form_response.definition.fields.find(a => a.ref === 'handle').id
- 
-    const handle = form_response.answers.find(a => a.field.id === handleId).text
+    const handleId = form_response.definition.fields.find(a => a.ref === 'handle').id;
+    const handle = form_response.answers.find(a => a.field.id === handleId).text;
     io.sockets.emit('webhook_received', { handle });
   }
 });
 
-const verifySignature = function(receivedSignature, payload){
-  console.log('Expected Signature:', receivedSignature);
-  console.log('Computed Signature:', `sha256=${hash}`);
-
+const verifySignature = function(receivedSignature, payload) {
   const hash = crypto
     .createHmac('sha256', webhookSecret)
     .update(payload)
@@ -280,9 +284,11 @@ const verifySignature = function(receivedSignature, payload){
     .replace(/\+/g, '-') // Replace '+' with '-'
     .replace(/\//g, '_') // Replace '/' with '_'
     .replace(/=+$/, ''); // Remove padding
-  return receivedSignature === `sha256=${hash}`
-}
 
-
+  console.log('Expected Signature:', receivedSignature);
+  console.log('Computed Signature:', `sha256=${hash}`);
+  
+  return receivedSignature === `sha256=${hash}`;
+};
 
 app.get('/', (req, res) => res.send('Backend server is running!'));
