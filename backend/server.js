@@ -272,19 +272,29 @@ app.post('/webhook/typeform', async (request, response) => {
     // Extracting the answers and formatting them for Discord
     const answers = form_response.answers.map(answer => {
       const fieldDefinition = form_response.definition.fields.find(field => field.id === answer.field.id);
+      const responseType = Object.keys(answer).filter(key => key !== 'field')[0];
       return {
         title: fieldDefinition ? fieldDefinition.title : 'Unknown Field',
-        response: answer[Object.keys(answer).filter(key => key !== 'field')[0]] // Get the value dynamically
+        response: answer[responseType]
       };
     });
 
     // Prepare the message content with better formatting
-    const messageContent = answers.map(answer => `**${answer.title}:** ${answer.response}`).join('\n');
+    const messageContent = answers.map(answer => {
+      let response = answer.response;
+      if (Array.isArray(response)) {
+        response = response.join(', ');
+      } else if (typeof response === 'object' && response !== null) {
+        response = Object.values(response).join(', ');
+      }
+      return `**${answer.title}:** ${response}`;
+    }).join('\n');
+
     const formattedMessage = `
-****************************************************
+___________________________
 **New Typeform Submission:**
 ${messageContent}
-****************************************************
+___________________________
     `;
 
     // Send data to Discord channel
