@@ -12,7 +12,6 @@ let webSocketClients = [];
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Middleware to capture raw body
 app.use(bodyParser.json({
   verify: (req, res, buf) => {
     req.rawBody = buf.toString();
@@ -330,9 +329,6 @@ const verifySignature = function(receivedSignature, payload) {
     .createHmac('sha256', webhookSecret)
     .update(payload)
     .digest('base64');
-
-  console.log('Expected Signature:', receivedSignature);
-  console.log('Computed Signature:', `sha256=${hash}`);
   
   return receivedSignature === `sha256=${hash}`;
 };
