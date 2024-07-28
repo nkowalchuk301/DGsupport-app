@@ -248,7 +248,9 @@ app.post('/api/join-chat', async (req, res) => {
   }
 });
 
-// Use the Typeform webhook handler
-app.post('/webhook/typeform', handleTypeformWebhook);
+app.post('/webhook/typeform', (req, res) => {
+  console.log('Received data:', req.body);
+  res.send('Webhook received');
+});
 
 app.get('/', (req, res) => res.send('Backend server is running!'));
