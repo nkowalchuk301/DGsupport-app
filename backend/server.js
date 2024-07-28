@@ -246,7 +246,7 @@ app.post('/api/join-chat', async (req, res) => {
   }
 });
 
-app.post('/typeform/webhook', async (request, response) => {
+app.post('/webhook/typeform', async (request, response) => {
   console.log('~> webhook received');
   // security check, let's make sure request comes from typeform
   const signature = request.headers['typeform-signature']
