@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const { Client, GatewayIntentBits, ChannelType, PermissionsBitField } = require('discord.js');
 const cors = require('cors');
 const { WebSocketServer } = require('ws');
+const crypto = require('crypto');
 const { processTypeformWebhook, sendTypeformResponseToDiscord } = require('./typeformWebhook');
 require('dotenv').config();
 
@@ -246,21 +247,46 @@ app.post('/api/join-chat', async (req, res) => {
   }
 });
 
-app.get('/api/active-discord-users', async (req, res) => {
-  try {
-    const guild = client.guilds.cache.get(process.env.DISCORD_GUILD_ID);
-    if (!guild) return res.status(404).send('Guild not found');
-    
-    const activeUsers = await getActiveDiscordUsers(guild);
-    res.json(activeUsers);
-  } catch (error) {
-    console.error('Error fetching active Discord users:', error);
-    res.status(500).send('Failed to fetch active Discord users');
-  }
-});
+function verifyTypeformSignature(req) {
+  const typeformSignature = req.headers['typeform-signature'];
+  const secretKey = process.env.TYPEFORM_WEBHOOK_SECRET; // Store this securely in your .env file
+  const payload = JSON.stringify(req.body);
+  
+  const hmac = crypto.createHmac('sha256', secretKey);
+  const calculatedSignature = 'sha256=' + hmac.update(payload).digest('base64');
+  
+  return calculatedSignature === typeformSignature;
+}
 
-app.get('/api/typeform-webhook', (req, res) => {
-  res.status(200).send('Server is running');
+app.post('/api/typeform-webhook', async (req, res) => {
+  try {
+    // Verify the Typeform signature
+    if (!verifyTypeformSignature(req)) {
+      return res.status(401).send('Invalid signature');
+    }
+
+    const webhookData = req.body;
+    
+    // Process the webhook data using your existing function
+    const formResponse = processTypeformWebhook(webhookData);
+
+    // Log the processed data
+    console.log('Received Typeform submission:');
+    console.log('Form Name:', formResponse.formName);
+    console.log('Submission ID:', formResponse.submissionId);
+    console.log('Answers:', formResponse.answers);
+
+    // Here you can add code to store the data in a database,
+    // send notifications, or perform any other required actions
+
+    // Send the processed data to Discord
+    await sendTypeformResponseToDiscord(client, formResponse);
+
+    res.status(200).send('Webhook received and processed');
+  } catch (error) {
+    console.error('Error processing Typeform webhook:', error);
+    res.status(500).send('Failed to process webhook');
+  }
 });
 
 app.get('/', (req, res) => res.send('Backend server is running!'));

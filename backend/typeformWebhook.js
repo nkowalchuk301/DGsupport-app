@@ -67,15 +67,15 @@ async function sendTypeformResponseToDiscord(client, formResponse) {
     }
 
     const embed = {
-      title: `New Response: ${formResponse.formName}`,
+      title: `New Submission: ${formResponse.formName}`,
       color: 0x0099ff,
-      fields: formResponse.answers.map(answer => ({
-        name: answer.question,
-        value: answer.answer,
-      })),
-      footer: {
-        text: `Submission ID: ${formResponse.submissionId}`,
-      },
+      fields: [
+        { name: 'Submission ID', value: formResponse.submissionId },
+        ...formResponse.answers.map(answer => ({
+          name: answer.question,
+          value: answer.answer,
+        }))
+      ],
       timestamp: new Date(),
     };
 
