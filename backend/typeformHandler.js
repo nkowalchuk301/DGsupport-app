@@ -2,13 +2,18 @@ const crypto = require('crypto');
 const { Client } = require('discord.js');
 
 function verifySignature(req, secret) {
-  const signature = req.headers['typeform-signature'];
-  const payload = JSON.stringify(req.body);
-  const hmac = crypto.createHmac('sha256', secret);
-  hmac.update(payload);
-  const hash = `sha256=${hmac.digest('base64')}`;
-  return hash === signature;
-}
+    if (!secret) {
+      console.error("Secret key is undefined. Check environment variable TYPEFORM_WEBHOOK_SECRET.");
+      return false;
+    }
+    const signature = req.headers['typeform-signature'];
+    const payload = JSON.stringify(req.body);
+    const hmac = crypto.createHmac('sha256', secret);
+    hmac.update(payload);
+    const hash = `sha256=${hmac.digest('base64')}`;
+    return hash === signature;
+  }
+  
 
 async function handleTypeformWebhook(req, res) {
     const secret = process.env.TYPEFORM_WEBHOOK_SECRET;
