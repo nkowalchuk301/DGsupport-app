@@ -11,38 +11,42 @@ function verifySignature(req, secret) {
 }
 
 async function handleTypeformWebhook(req, res) {
-  const secret = process.env.TYPEFORM_WEBHOOK_SECRET;
+    console.log("Webhook received with data:", req.body);
 
-  if (!verifySignature(req, secret)) {
-    return res.status(403).send('Invalid signature');
-  }
-
-  const webhookData = req.body;
-
-  // Extract relevant information from webhook data
-  const formResponses = webhookData.form_response.answers;
-  const formTitle = webhookData.form_response.definition.title;
-  const respondent = webhookData.form_response.hidden ? webhookData.form_response.hidden.email : 'Unknown'; // Assuming you use hidden fields to capture email
-  
-  // Format message to send to Discord
-  let message = `New Typeform submission for **${formTitle}** from ${respondent}:\n`;
-  formResponses.forEach(answer => {
-    if (answer.type === 'choices') {
-      message += `\n**${answer.field.title}**: ${answer.choices.labels.join(', ')}`;
-    } else if (answer.type === 'choice') {
-      message += `\n**${answer.field.title}**: ${answer.choice.label}`;
-    } else {
-      message += `\n**${answer.field.title}**: ${answer[answer.type]}`;
+    if (!verifySignature(req, process.env.TYPEFORM_WEBHOOK_SECRET)) {
+        console.warn("Failed signature verification for webhook from IP:", req.ip);
+        return res.status(403).send('Invalid signature');
     }
-  });
 
-  // Send message to Discord channel
-  const channel = req.app.locals.discordClient.channels.cache.get(process.env.DISCORD_CHANNEL_ID); // Replace with your channel ID
-  if (channel) {
-    await channel.send(message);
-  }
+    const webhookData = req.body;
+    console.log("Signature verified. Processing data for form:", webhookData.form_response.form_id);
 
-  res.status(200).send('Webhook received');
+    try {
+        const message = formatDiscordMessage(webhookData);
+        const channel = req.app.locals.discordClient.channels.cache.get(process.env.DISCORD_CHANNEL_ID);
+        if (channel) {
+            await channel.send(message);
+            console.log("Message sent to Discord channel");
+        } else {
+            console.error("Discord channel not found");
+        }
+        res.status(200).send('Webhook processed');
+    } catch (error) {
+        console.error("Error processing webhook data:", error);
+        res.status(500).send('Internal server error');
+    }
 }
+
+function formatDiscordMessage(webhookData) {
+    const formResponses = webhookData.form_response.answers;
+    const formTitle = webhookData.form_response.definition.title;
+    const respondent = webhookData.form_response.hidden ? webhookData.form_response.hidden.email : 'Unknown';
+    let message = `New Typeform submission for **${formTitle}** from ${respondent}:\n`;
+    formResponses.forEach(answer => {
+        message += `\n**${answer.field.title}**: ${answer[answer.type] || answer.text || answer.choice.label || answer.choices.labels.join(', ')}`;
+    });
+    return message;
+}
+
 
 module.exports = handleTypeformWebhook;

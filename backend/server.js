@@ -251,8 +251,4 @@ app.post('/api/join-chat', async (req, res) => {
 // Use the Typeform webhook handler
 app.post('/webhook/typeform', handleTypeformWebhook);
 
-client.on('messageCreate', async message => {
-  // Handle messages if needed
-});
-
 app.get('/', (req, res) => res.send('Backend server is running!'));
