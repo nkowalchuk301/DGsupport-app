@@ -289,14 +289,32 @@ app.post('/webhook/typeform', async (request, response) => {
       return;
     }
 
-    const channel = guild.channels.cache.get(process.env.DISCORD_CHANNEL_ID);
+    let channel = guild.channels.cache.find(ch => ch.name === 'typeform-responses');
     if (!channel) {
-      console.error('Channel not found');
-      return;
+      try {
+        channel = await guild.channels.create({
+          name: 'typeform-responses',
+          type: ChannelType.GuildText,
+          permissionOverwrites: [
+            {
+              id: guild.roles.everyone.id,
+              allow: [PermissionsBitField.Flags.ViewChannel],
+            }
+          ]
+        });
+        console.log('Channel created: typeform-responses');
+      } catch (error) {
+        console.error('Error creating channel:', error);
+        return;
+      }
     }
 
-    await channel.send(`New Typeform Submission:\n${messageContent}`);
-    console.log('Message sent to Discord channel');
+    try {
+      await channel.send(`New Typeform Submission:\n${messageContent}`);
+      console.log('Message sent to Discord channel');
+    } catch (error) {
+      console.error('Error sending message to Discord channel:', error);
+    }
   }
 });
 
