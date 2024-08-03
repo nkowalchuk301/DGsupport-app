@@ -94,27 +94,44 @@ async function archiveAndDeleteChatHistory(email) {
   if (!supportChannel) throw new Error('Support channel not found');
 
   const archiveChannel = guild.channels.cache.find(ch => ch.name === 'chat-archives');
-  if (!archiveChannel) {
-    // Create archive channel if it doesn't exist
-    await guild.channels.create({
-      name: 'chat-archives',
-      type: ChannelType.GuildText,
-      permissionOverwrites: [
-        {
-          id: guild.roles.everyone.id,
-          deny: [PermissionsBitField.Flags.ViewChannel],
-        },
-      ],
-    });
-  }
+  if (!archiveChannel) throw new Error('Archive channel not found');
 
-  const thread = supportChannel.threads.cache.find(t => t.name === email);
-  if (thread) {
-    // Move thread to archive channel
-    await thread.setParent(archiveChannel.id);
-    // Delete thread from original channel
-    await thread.delete();
+  const originalThread = supportChannel.threads.cache.find(t => t.name === email);
+  if (originalThread) {
+    const archivedThread = await archiveChannel.threads.create({
+      name: `${email}-${Date.now()}`,
+      autoArchiveDuration: 10080, // 7 days
+      reason: `Archived chat history for ${email}`
+    });
+
+    const messages = await originalThread.messages.fetch({ limit: 100 });
+
+    const chatHistory = messages
+      .filter(msg => !msg.content.startsWith('**') && !msg.content.endsWith('**'))
+      .map(msg => `${msg.author.bot ? 'Support' : 'User'}: ${msg.content}`)
+      .reverse();
+
+    const messageChunks = [];
+    let currentChunk = '';
+    for (const message of chatHistory) {
+      if (currentChunk.length + message.length + 1 > 2000) {
+        messageChunks.push(currentChunk);
+        currentChunk = message;
+      } else {
+        currentChunk += (currentChunk ? '\n' : '') + message;
+      }
+    }
+    if (currentChunk) {
+      messageChunks.push(currentChunk);
+    }
+
+    for (const chunk of messageChunks) {
+      await archivedThread.send(chunk);
+    }
+    await originalThread.delete();
     console.log(`Archived and deleted thread for ${email}`);
+  } else {
+    console.log(`No thread found for ${email}`);
   }
 }
 
