@@ -25,8 +25,8 @@ app.use(cors({
 app.use(session({
   secret: process.env.SECRET_KEY,
   resave: false,
-  saveUninitialized: true,
-  cookie: { secure: true }
+  saveUninitialized: false,
+  cookie: { secure: true, maxAge: 3600000 } // 1 hour for session expiration
 }));
 
 const client = new Client({
@@ -52,18 +52,25 @@ const server = app.listen(port, () => console.log(`Server running on port ${port
 
 const wss = new WebSocketServer({ noServer: true });
 
-async function sendJoinNotification(thread, email) {
-  console.log(`Sending join notification for ${email}`);
-  await thread.send(`**${email} has joined the chat**`).catch(error => {
-    console.error('Failed to send join notification:', error);
-  });
-}
+async function notifyDiscord(email, action) {
+  const guild = await client.guilds.cache.get(process.env.DISCORD_GUILD_ID);
+  if (!guild) return console.error('Guild not found');
 
-async function sendLeaveNotification(thread, email) {
-  console.log(`Sending leave notification for ${email}`);
-  await thread.send(`**${email} has left the chat**`).catch(error => {
-    console.error('Failed to send leave notification:', error);
-  });
+  const channel = await guild.channels.cache.find(ch => ch.name === 'support-chat');
+  if (!channel) return console.error('Channel not found');
+
+  let thread = channel.threads.cache.find(t => t.name === email);
+  if (!thread) {
+    thread = await channel.threads.create({
+      name: email,
+      autoArchiveDuration: 1440,
+      reason: 'New support conversation'
+    });
+  }
+
+  const message = `**${email} has ${action === 'join' ? 'joined' : 'left'} the chat**`;
+  await thread.send(message);
+  console.log(`${action} message sent for ${email}`);
 }
 
 wss.on('connection', (ws) => {
@@ -197,72 +204,29 @@ app.get('/api/conversation-history', async (req, res) => {
 });
 
 app.post('/api/leave-chat', async (req, res) => {
-  const { email } = req.body;
-  console.log('User leaving chat:', email);
-  try {
-    const guild = client.guilds.cache.get(process.env.DISCORD_GUILD_ID);
-    if (!guild) return res.status(404).send('Guild not found');
-    
-    const channelName = 'support-chat';
-    const channel = guild.channels.cache.find(ch => ch.name === channelName);
-    if (!channel) return res.status(404).send('Channel not found');
-    
-    const thread = channel.threads.cache.find(t => t.name === email);
-    if (thread) {
-      await sendLeaveNotification(thread, email);
-      console.log('Leave notification sent for:', email);
-    }
-    
-    res.status(200).send('Leave notification sent');
-  } catch (error) {
-    console.error('Error sending leave notification:', error);
-    res.status(500).send('Failed to send leave notification');
+  const email = req.session.email;
+  if (email) {
+    await notifyDiscord(email, 'leave');
+    req.session.destroy(err => {
+      if (err) {
+        console.error('Failed to destroy session:', err);
+        return res.status(500).send('Failed to end session');
+      }
+      res.send('Leave notification sent and session ended');
+    });
+  } else {
+    res.status(400).send('No active session');
   }
 });
 
 app.post('/api/join-chat', async (req, res) => {
   const { email } = req.body;
-  console.log('User joining chat:', email);
-  try {
-    const guild = client.guilds.cache.get(process.env.DISCORD_GUILD_ID);
-    if (!guild) return res.status(404).send('Guild not found');
-    
-    const channelName = 'support-chat';
-    let channel = guild.channels.cache.find(ch => ch.name === channelName);
-    if (!channel) {
-      channel = await guild.channels.create({
-        name: channelName,
-        type: ChannelType.GuildText,
-        permissionOverwrites: [
-          {
-            id: guild.roles.everyone.id,
-            deny: [PermissionsBitField.Flags.ViewChannel],
-          },
-          {
-            id: client.user.id,
-            allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
-          },
-        ],
-      });
-    }
-    
-    let thread = channel.threads.cache.find(t => t.name === email);
-    if (!thread) {
-      thread = await channel.threads.create({
-        name: email,
-        autoArchiveDuration: 1440,
-        reason: 'New support conversation'
-      });
-    }
-    
-    await sendJoinNotification(thread, email);
-    console.log('Join notification sent for:', email);
-    
-    res.status(200).send('Join notification sent');
-  } catch (error) {
-    console.error('Error sending join notification:', error);
-    res.status(500).send('Failed to send join notification');
+  if (!req.session.email) {
+    req.session.email = email;
+    console.log('Session started for:', email);
+    await notifyDiscord(email, 'join');
   }
+  res.status(200).send('Join notification processed');
 });
 
 app.get('/', (req, res) => res.send('Backend server is running!'));
