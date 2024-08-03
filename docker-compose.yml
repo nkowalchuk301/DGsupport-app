@@ -4,16 +4,14 @@ services:
     build: ./backend
     ports:
       - "5000:5000"
-    environment:
-      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
-      - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
-      - TYPEFORM_WEBHOOK_SECRET=${TYPEFORM_WEBHOOK_SECRET}
+    env_file:
+      - .env
   frontend:
     build: ./frontend
     expose:
       - "3000"
-    environment:
-      - REACT_APP_BACKEND_URL=http://backend:5000
+    env_file:
+      - .env
   nginx:
     image: nginx:latest
     ports:
