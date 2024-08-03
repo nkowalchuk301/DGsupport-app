@@ -64,8 +64,18 @@ function App() {
   };
 
   const handleLogout = async () => {
-    await magic.user.logout();
-    setUser(null);
+    try {
+      await magic.user.logout();
+      await fetch(`${apiUrl}/end-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email }),
+        credentials: 'include'
+      });
+      setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   if (isLoading) {

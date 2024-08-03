@@ -103,6 +103,36 @@ function Support({ user }) {
     }
   };
 
+  const handleEndChatSession = async () => {
+    try {
+      await fetch(`${apiUrl}/end-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email }),
+        credentials: 'include'
+      });
+      navigate('/');
+    } catch (error) {
+      console.error('Error ending chat session:', error);
+    }
+  };
+
+  const handleDeleteChatHistory = async () => {
+    if (window.confirm('Are you sure you want to delete your chat history? This action cannot be undone.')) {
+      try {
+        await fetch(`${apiUrl}/delete-chat-history`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: user.email }),
+          credentials: 'include'
+        });
+        setMessages([]);
+      } catch (error) {
+        console.error('Error deleting chat history:', error);
+      }
+    }
+  };
+
   const handleSend = async () => {
     if (input.trim() === '') return;
     const newMessage = {
@@ -129,7 +159,9 @@ function Support({ user }) {
   return (
     <div className="support-container">
       <div className="button-container">
-        <button onClick={() => navigate('/')} className="home-button">Back to Home</button>
+      <button onClick={() => navigate('/')} className="home-button">Back to Home</button>
+        <button onClick={handleEndChatSession} className="end-session-button">End Chat Session</button>
+        <button onClick={handleDeleteChatHistory} className="delete-history-button">Delete Chat History</button>
       </div>
       <div className="support-content">
         <div className="chat-container">
