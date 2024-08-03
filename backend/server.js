@@ -7,14 +7,17 @@ require('dotenv').config();
 
 let webSocketClients = [];
 const app = express();
-const port = process.env.PORT || 5000;
+const port = process.env.PORT;
 
 app.use(bodyParser.json({
   verify: (req, res, buf) => {
     req.rawBody = buf.toString();
   }
 }));
-app.use(cors({ origin: 'https://digitalgenesis.support' }));
+app.use(cors({ origin: 'https://digitalgenesis.support',
+    methods: 'GET,POST,PUT,DELETE,OPTIONS',
+  allowedHeaders: 'Content-Type, Authorization'
+ }));
 
 const client = new Client({
   intents: [
