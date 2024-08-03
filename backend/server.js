@@ -8,7 +8,7 @@ require('dotenv').config();
 
 let webSocketClients = [];
 const app = express();
-const port = process.env.PORT;
+const port = process.env.PORT || 5000;
 
 app.use(bodyParser.json({
   verify: (req, res, buf) => {
@@ -44,18 +44,26 @@ const client = new Client({
 
 client.once('ready', () => console.log('Discord bot is ready!'));
 
-client.login(process.env.DISCORD_BOT_TOKEN);
+client.login(process.env.DISCORD_BOT_TOKEN).catch(error => {
+  console.error('Failed to login to Discord:', error);
+});
 
 const server = app.listen(port, () => console.log(`Server running on port ${port}`));
 
 const wss = new WebSocketServer({ noServer: true });
 
 async function sendJoinNotification(thread, email) {
-  await thread.send(`**${email} has joined the chat**`);
+  console.log(`Sending join notification for ${email}`);
+  await thread.send(`**${email} has joined the chat**`).catch(error => {
+    console.error('Failed to send join notification:', error);
+  });
 }
 
 async function sendLeaveNotification(thread, email) {
-  await thread.send(`**${email} has left the chat**`);
+  console.log(`Sending leave notification for ${email}`);
+  await thread.send(`**${email} has left the chat**`).catch(error => {
+    console.error('Failed to send leave notification:', error);
+  });
 }
 
 wss.on('connection', (ws) => {
@@ -101,8 +109,11 @@ app.post('/api/send-message', async (req, res) => {
   console.log('Creating/using thread for email:', email);
   try {
     const guild = client.guilds.cache.get(process.env.DISCORD_GUILD_ID);
-    if (!guild) return res.status(404).send('Guild not found');
-    
+    if (!guild) {
+      console.error('Guild not found');
+      return res.status(404).send('Guild not found');
+    }
+
     const channelName = 'support-chat';
     let channel = guild.channels.cache.find(ch => ch.name === channelName);
     if (!channel) {
@@ -121,7 +132,7 @@ app.post('/api/send-message', async (req, res) => {
         ],
       });
     }
-    
+
     let thread = channel.threads.cache.find(t => t.name === email);
     let isNewThread = false;
     if (!thread) {
@@ -132,11 +143,11 @@ app.post('/api/send-message', async (req, res) => {
       });
       isNewThread = true;
     }
-    
+
     if (isNewThread) {
       await sendJoinNotification(thread, email);
     }
-    
+
     await thread.send(text);
     console.log('Message sent to thread:', email);
     res.status(200).send('Message sent');
@@ -152,17 +163,26 @@ app.get('/api/conversation-history', async (req, res) => {
   console.log('Fetching history for email:', email);
   try {
     const guild = client.guilds.cache.get(process.env.DISCORD_GUILD_ID);
-    if (!guild) return res.status(404).send('Guild not found');
-    
+    if (!guild) {
+      console.error('Guild not found');
+      return res.status(404).send('Guild not found');
+    }
+
     const channelName = 'support-chat';
     const channel = guild.channels.cache.find(ch => ch.name === channelName);
-    if (!channel) return res.status(404).send('Channel not found');
-    
+    if (!channel) {
+      console.error('Channel not found');
+      return res.status(404).send('Channel not found');
+    }
+
     const thread = channel.threads.cache.find(t => t.name === email);
-    if (!thread) return res.status(404).send('Thread not found');
-    
+    if (!thread) {
+      console.error('Thread not found');
+      return res.status(404).send('Thread not found');
+    }
+
     const messages = await thread.messages.fetch({ limit: 100 });
-    
+
     const formattedMessages = messages
       .filter(msg => !msg.content.startsWith('**') && !msg.content.endsWith('**')) // Filter out system messages
       .map(msg => ({
@@ -185,18 +205,24 @@ app.post('/api/leave-chat', async (req, res) => {
   console.log('User leaving chat:', email);
   try {
     const guild = client.guilds.cache.get(process.env.DISCORD_GUILD_ID);
-    if (!guild) return res.status(404).send('Guild not found');
-    
+    if (!guild) {
+      console.error('Guild not found');
+      return res.status(404).send('Guild not found');
+    }
+
     const channelName = 'support-chat';
     const channel = guild.channels.cache.find(ch => ch.name === channelName);
-    if (!channel) return res.status(404).send('Channel not found');
-    
+    if (!channel) {
+      console.error('Channel not found');
+      return res.status(404).send('Channel not found');
+    }
+
     const thread = channel.threads.cache.find(t => t.name === email);
     if (thread) {
       await sendLeaveNotification(thread, email);
       console.log('Leave notification sent for:', email);
     }
-    
+
     res.status(200).send('Leave notification sent');
   } catch (error) {
     console.error('Error sending leave notification:', error);
@@ -210,8 +236,11 @@ app.post('/api/join-chat', async (req, res) => {
   console.log('User joining chat:', email);
   try {
     const guild = client.guilds.cache.get(process.env.DISCORD_GUILD_ID);
-    if (!guild) return res.status(404).send('Guild not found');
-    
+    if (!guild) {
+      console.error('Guild not found');
+      return res.status(404).send('Guild not found');
+    }
+
     const channelName = 'support-chat';
     let channel = guild.channels.cache.find(ch => ch.name === channelName);
     if (!channel) {
@@ -230,7 +259,7 @@ app.post('/api/join-chat', async (req, res) => {
         ],
       });
     }
-    
+
     let thread = channel.threads.cache.find(t => t.name === email);
     if (!thread) {
       thread = await channel.threads.create({
@@ -240,7 +269,7 @@ app.post('/api/join-chat', async (req, res) => {
       });
       await sendJoinNotification(thread, email);
     }
-    
+
     res.status(200).send('Join notification sent');
   } catch (error) {
     console.error('Error sending join notification:', error);
