@@ -6,5 +6,5 @@ COPY . .
 RUN npm run build
 # Use a simple server to serve the static files
 RUN npm install -g serve
-EXPOSE 3000
+EXPOSE 5000
 CMD ["serve", "-s", "build"]
