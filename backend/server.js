@@ -9,6 +9,7 @@ require('dotenv').config();
 let webSocketClients = [];
 const app = express();
 const port = process.env.PORT || 5000;
+const activeSessions = new Map();
 
 app.use(bodyParser.json({
   verify: (req, res, buf) => {
@@ -19,14 +20,18 @@ app.use(bodyParser.json({
 app.use(cors({
   origin: 'https://digitalgenesis.support',
   methods: 'GET,POST,PUT,DELETE,OPTIONS',
-  allowedHeaders: 'Content-Type, Authorization'
+  allowedHeaders: 'Content-Type, Authorization',
+  credentials: 'true'
 }));
 
 app.use(session({
   secret: process.env.SECRET_KEY,
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: true, maxAge: 3600000 } // 1 hour for session expiration
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production', 
+    maxAge: 3600000 // 1 hour
+  }
 }));
 
 const client = new Client({
@@ -79,6 +84,19 @@ wss.on('connection', (ws) => {
     webSocketClients = webSocketClients.filter(client => client !== ws);
   });
 });
+
+function cleanupStaleSessions() {
+  const now = Date.now();
+  for (const [email, lastActive] of activeSessions.entries()) {
+    if (now - lastActive > 30 * 60 * 1000) { // 30 minutes
+      activeSessions.delete(email);
+      notifyDiscord(email, 'leave').catch(console.error);
+    }
+  }
+}
+
+// Run cleanup every 5 minutes
+setInterval(cleanupStaleSessions, 5 * 60 * 1000);
 
 server.on('upgrade', (request, socket, head) => {
   if (request.url === '/ws') {
@@ -204,8 +222,10 @@ app.get('/api/conversation-history', async (req, res) => {
 });
 
 app.post('/api/leave-chat', async (req, res) => {
-  const email = req.session.email;
-  if (email) {
+  const { email } = req.body;
+  
+  if (activeSessions.has(email)) {
+    activeSessions.delete(email);
     await notifyDiscord(email, 'leave');
     req.session.destroy(err => {
       if (err) {
@@ -215,17 +235,23 @@ app.post('/api/leave-chat', async (req, res) => {
       res.send('Leave notification sent and session ended');
     });
   } else {
-    res.status(400).send('No active session');
+    res.status(400).send('No active session for this email');
   }
 });
 
 app.post('/api/join-chat', async (req, res) => {
   const { email } = req.body;
-  if (!req.session.email) {
-    req.session.email = email;
-    console.log('Session started for:', email);
+  
+  if (!activeSessions.has(email)) {
+    activeSessions.set(email, Date.now());
     await notifyDiscord(email, 'join');
+    console.log('Session started for:', email);
+  } else {
+    activeSessions.set(email, Date.now());
+    console.log('Session refreshed for:', email);
   }
+  
+  req.session.email = email;
   res.status(200).send('Join notification processed');
 });
 

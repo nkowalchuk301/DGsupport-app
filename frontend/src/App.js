@@ -36,12 +36,22 @@ function App() {
       };
   
       window.addEventListener('beforeunload', handleBeforeUnload);
-  
-      return () => {
-        window.removeEventListener('beforeunload', handleBeforeUnload);
-      };
-    }
-  }, [user]);
+
+      const intervalId = setInterval(() => {
+        fetch('https://digitalgenesis.support/api/join-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: user.email }),
+          credentials: 'include'
+        }).catch(error => console.error('Error refreshing session:', error));
+      }, 5 * 60 * 1000); // Every 5 minutes
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      clearInterval(intervalId);
+    };
+  }
+}, [user]);
 
   const handleLogin = async () => {
     try {

@@ -21,6 +21,7 @@ function Support({ user }) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: user.email }),
+      credentials: 'include'
     }).catch(error => console.error('Error sending join notification:', error));
 
     if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
