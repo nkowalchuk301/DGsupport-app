@@ -231,14 +231,21 @@ nav {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  height: 100vh;
-  background-color: var(--discord-bg);
-  color: var(--discord-text);
-  min-height: 100vh;
-  padding: 20px;
-  box-sizing: border-box;
-  overflow-y: auto;
+  justify-content: flex-start;
+  padding-top: 50px;
+}
+
+.profile-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 300px;
+  margin-top: 20px;
+}
+
+.profile-buttons button {
+  width: 100%;
 }
 
 .home-container {

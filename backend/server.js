@@ -207,18 +207,13 @@ app.post('/api/send-message', async (req, res) => {
     }
     
     let thread = channel.threads.cache.find(t => t.name === email);
-    let isNewThread = false;
     if (!thread) {
       thread = await channel.threads.create({
         name: email,
         autoArchiveDuration: 1440,
         reason: 'New support conversation'
       });
-      isNewThread = true;
-    }
-    
-    if (isNewThread) {
-      await sendJoinNotification(thread, email);
+      await thread.send(`**${email} has joined the chat**`);
     }
     
     await thread.send(text);

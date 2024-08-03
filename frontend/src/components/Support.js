@@ -140,21 +140,26 @@ function Support({ user }) {
       sender: 'user',
       timestamp: new Date().toISOString()
     };
-    setMessages(prevMessages => [...prevMessages, newMessage]);
     await sendMessageToDiscord(newMessage);
     setInput('');
   };
 
-  const sendMessageToDiscord = async (message) => {
+const sendMessageToDiscord = async (message) => {
+  try {
     const response = await fetch(`${apiUrl}/send-message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...message, email: user.email }),
     });
     if (!response.ok) {
-      console.error('Failed to send message to Discord');
+      throw new Error('Failed to send message to Discord');
     }
-  };
+    setMessages(prevMessages => [...prevMessages, message]);
+  } catch (error) {
+    console.error('Error sending message:', error);
+    alert('Failed to send message. Please try again.');
+  }
+};
 
   return (
     <div className="support-container">
