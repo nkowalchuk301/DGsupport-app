@@ -10,6 +10,7 @@ let webSocketClients = [];
 const app = express();
 const port = process.env.PORT || 5000;
 const activeSessions = new Map();
+const INACTIVE_THRESHOLD = 90000; // 90 seconds
 
 app.use(bodyParser.json({
   verify: (req, res, buf) => {
@@ -88,15 +89,16 @@ wss.on('connection', (ws) => {
 function cleanupStaleSessions() {
   const now = Date.now();
   for (const [email, lastActive] of activeSessions.entries()) {
-    if (now - lastActive > 30 * 60 * 1000) { // 30 minutes
+    if (now - lastActive > INACTIVE_THRESHOLD) {
       activeSessions.delete(email);
       notifyDiscord(email, 'leave').catch(console.error);
+      console.log('User left (inactivity):', email);
     }
   }
 }
 
-// Run cleanup every 5 minutes
-setInterval(cleanupStaleSessions, 5 * 60 * 1000);
+// Run cleanup every 60 seconds
+setInterval(cleanupStaleSessions, 60000);
 
 server.on('upgrade', (request, socket, head) => {
   if (request.url === '/ws') {
@@ -221,38 +223,29 @@ app.get('/api/conversation-history', async (req, res) => {
   }
 });
 
-app.post('/api/leave-chat', async (req, res) => {
+app.post('/api/heartbeat', (req, res) => {
   const { email } = req.body;
-  
-  if (activeSessions.has(email)) {
-    activeSessions.delete(email);
-    await notifyDiscord(email, 'leave');
-    req.session.destroy(err => {
-      if (err) {
-        console.error('Failed to destroy session:', err);
-        return res.status(500).send('Failed to end session');
-      }
-      res.send('Leave notification sent and session ended');
-    });
+  if (email) {
+    activeSessions.set(email, Date.now());
+    res.sendStatus(200);
   } else {
-    res.status(400).send('No active session for this email');
+    res.sendStatus(400);
   }
 });
 
 app.post('/api/join-chat', async (req, res) => {
   const { email } = req.body;
-  
-  if (!activeSessions.has(email)) {
-    activeSessions.set(email, Date.now());
-    await notifyDiscord(email, 'join');
-    console.log('Session started for:', email);
+  if (email) {
+    const now = Date.now();
+    if (!activeSessions.has(email)) {
+      await notifyDiscord(email, 'join');
+      console.log('User joined:', email);
+    }
+    activeSessions.set(email, now);
+    res.sendStatus(200);
   } else {
-    activeSessions.set(email, Date.now());
-    console.log('Session refreshed for:', email);
+    res.sendStatus(400);
   }
-  
-  req.session.email = email;
-  res.status(200).send('Join notification processed');
 });
 
 app.get('/', (req, res) => res.send('Backend server is running!'));

@@ -11,6 +11,8 @@ function App() {
   const [user, setUser] = useState(null);
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const apiUrl = process.env.REACT_APP_API_URL;
+  const wsUrl = process.env.REACT_APP_WS_URL;
 
   useEffect(() => {
     magic.user.isLoggedIn().then(isLoggedIn => {
@@ -26,32 +28,30 @@ function App() {
 
   useEffect(() => {
     if (user) {
-      const handleBeforeUnload = () => {
-        fetch('https://digitalgenesis.support/api/leave-chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: user.email }),
-          keepalive: true
-        }).catch(error => console.error('Error sending leave notification:', error));
-      };
-  
-      window.addEventListener('beforeunload', handleBeforeUnload);
-
-      const intervalId = setInterval(() => {
-        fetch('https://digitalgenesis.support/api/join-chat', {
+      const sendHeartbeat = () => {
+        fetch(`${apiUrl}/heartbeat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: user.email }),
           credentials: 'include'
-        }).catch(error => console.error('Error refreshing session:', error));
-      }, 5 * 60 * 1000); // Every 5 minutes
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      clearInterval(intervalId);
-    };
-  }
-}, [user]);
+        }).catch(error => console.error('Error sending heartbeat:', error));
+      };
+  
+      fetch(`${apiUrl}/join-chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email }),
+        credentials: 'include'
+      }).catch(error => console.error('Error sending join notification:', error));
+  
+      // Set up heartbeat interval
+      const heartbeatInterval = setInterval(sendHeartbeat, 30000); // Every 60 seconds
+  
+      return () => {
+        clearInterval(heartbeatInterval);
+      };
+    }
+  }, [user]);
 
   const handleLogin = async () => {
     try {
