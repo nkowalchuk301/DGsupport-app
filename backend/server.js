@@ -14,10 +14,12 @@ app.use(bodyParser.json({
     req.rawBody = buf.toString();
   }
 }));
-app.use(cors({ origin: 'https://digitalgenesis.support',
-    methods: 'GET,POST,PUT,DELETE,OPTIONS',
+
+app.use(cors({
+  origin: 'https://digitalgenesis.support',
+  methods: 'GET,POST,PUT,DELETE,OPTIONS',
   allowedHeaders: 'Content-Type, Authorization'
- }));
+}));
 
 const client = new Client({
   intents: [

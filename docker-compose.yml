@@ -1,4 +1,5 @@
 version: '3.8'
+
 services:
   backend:
     build: ./backend
@@ -6,12 +7,14 @@ services:
       - "5000:5000"
     env_file:
       - .env
+
   frontend:
     build: ./frontend
     expose:
       - "3000"
     env_file:
       - .env
+
   nginx:
     image: nginx:latest
     ports:
