@@ -1,7 +1,7 @@
 // src/magic.js
 
 import { Magic } from 'magic-sdk';
-
-const magic = new Magic('pk_live_28A31FADE812856B');
+const REACT_APP_MAGIC_PUBLISH_KEY = process.env.REACT_APP_MAGIC_PUBLISH_KEY;
+const magic = new Magic(`${REACT_APP_MAGIC_PUBLISH_KEY}`);
 
 export default magic;
