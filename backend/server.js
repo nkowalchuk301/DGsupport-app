@@ -86,6 +86,38 @@ wss.on('connection', (ws) => {
   });
 });
 
+async function archiveAndDeleteChatHistory(email) {
+  const guild = await client.guilds.cache.get(process.env.DISCORD_GUILD_ID);
+  if (!guild) throw new Error('Guild not found');
+
+  const supportChannel = guild.channels.cache.find(ch => ch.name === 'support-chat');
+  if (!supportChannel) throw new Error('Support channel not found');
+
+  const archiveChannel = guild.channels.cache.find(ch => ch.name === 'chat-archives');
+  if (!archiveChannel) {
+    // Create archive channel if it doesn't exist
+    await guild.channels.create({
+      name: 'chat-archives',
+      type: ChannelType.GuildText,
+      permissionOverwrites: [
+        {
+          id: guild.roles.everyone.id,
+          deny: [PermissionsBitField.Flags.ViewChannel],
+        },
+      ],
+    });
+  }
+
+  const thread = supportChannel.threads.cache.find(t => t.name === email);
+  if (thread) {
+    // Move thread to archive channel
+    await thread.setParent(archiveChannel.id);
+    // Delete thread from original channel
+    await thread.delete();
+    console.log(`Archived and deleted thread for ${email}`);
+  }
+}
+
 function cleanupStaleSessions() {
   const now = Date.now();
   for (const [email, lastActive] of activeSessions.entries()) {
@@ -242,6 +274,29 @@ app.post('/api/join-chat', async (req, res) => {
       console.log('User joined:', email);
     }
     activeSessions.set(email, now);
+    res.sendStatus(200);
+  } else {
+    res.sendStatus(400);
+  }
+});
+
+app.post('/api/delete-chat-history', async (req, res) => {
+  const { email } = req.body;
+  try {
+    await archiveAndDeleteChatHistory(email);
+    res.sendStatus(200);
+  } catch (error) {
+    console.error('Error archiving and deleting chat history:', error);
+    res.status(500).send('Failed to archive and delete chat history');
+  }
+});
+
+app.post('/api/end-session', async (req, res) => {
+  const { email } = req.body;
+  if (email) {
+    activeSessions.delete(email);
+    await notifyDiscord(email, 'leave');
+    console.log('User left:', email);
     res.sendStatus(200);
   } else {
     res.sendStatus(400);

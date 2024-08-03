@@ -160,8 +160,6 @@ function Support({ user }) {
     <div className="support-container">
       <div className="button-container">
       <button onClick={() => navigate('/')} className="home-button">Back to Home</button>
-        <button onClick={handleEndChatSession} className="end-session-button">End Chat Session</button>
-        <button onClick={handleDeleteChatHistory} className="delete-history-button">Delete Chat History</button>
       </div>
       <div className="support-content">
         <div className="chat-container">
