@@ -28,8 +28,10 @@ function Profile({ user }) {
     <div className="profile-container">
       <h2>Profile</h2>
       <p>Email: {user.email}</p>
-      <button onClick={handleDeleteChatHistory} className="delete-history-button">Delete Chat History</button>
-      <button onClick={() => navigate('/')} className="home-button">Back to Home</button>
+      <div className="profile-buttons">
+        <button onClick={handleDeleteChatHistory} className="delete-history-button">Delete Chat History</button>
+        <button onClick={() => navigate('/')} className="home-button">Back to Home</button>
+      </div>
     </div>
   );
 }
