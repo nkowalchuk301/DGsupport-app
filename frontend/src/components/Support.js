@@ -71,11 +71,6 @@ function Support({ user }) {
 
     return () => {
       socket.close();
-      fetch(`${apiUrl}/leave-chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email }),
-      }).catch(error => console.error('Error sending leave notification:', error));
     };
   }, [user.email, apiUrl, wsUrl]);
 

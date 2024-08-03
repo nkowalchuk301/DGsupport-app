@@ -1,5 +1,6 @@
 const express = require('express');
 const bodyParser = require('body-parser');
+const session = require('express-session');
 const { Client, GatewayIntentBits, ChannelType, PermissionsBitField } = require('discord.js');
 const cors = require('cors');
 const { WebSocketServer } = require('ws');
@@ -19,6 +20,13 @@ app.use(cors({
   origin: 'https://digitalgenesis.support',
   methods: 'GET,POST,PUT,DELETE,OPTIONS',
   allowedHeaders: 'Content-Type, Authorization'
+}));
+
+app.use(session({
+  secret: process.env.SECRET_KEY,
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: true }
 }));
 
 const client = new Client({
@@ -172,7 +180,8 @@ app.get('/api/conversation-history', async (req, res) => {
 });
 
 app.post('/api/leave-chat', async (req, res) => {
-  const { email } = req.body;
+  const email = req.session.email;
+  if (!email) return res.status(400).send('No session found');
   console.log('User leaving chat:', email);
   try {
     const guild = client.guilds.cache.get(process.env.DISCORD_GUILD_ID);
@@ -197,6 +206,7 @@ app.post('/api/leave-chat', async (req, res) => {
 
 app.post('/api/join-chat', async (req, res) => {
   const { email } = req.body;
+  req.session.email = email;
   console.log('User joining chat:', email);
   try {
     const guild = client.guilds.cache.get(process.env.DISCORD_GUILD_ID);
@@ -228,10 +238,8 @@ app.post('/api/join-chat', async (req, res) => {
         autoArchiveDuration: 1440,
         reason: 'New support conversation'
       });
+      await sendJoinNotification(thread, email);
     }
-    
-    await sendJoinNotification(thread, email);
-    console.log('Join notification sent for:', email);
     
     res.status(200).send('Join notification sent');
   } catch (error) {
