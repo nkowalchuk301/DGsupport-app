@@ -1,12 +1,9 @@
 const express = require('express');
-const crypto = require('crypto');
 const bodyParser = require('body-parser');
 const { Client, GatewayIntentBits, ChannelType, PermissionsBitField } = require('discord.js');
 const cors = require('cors');
 const { WebSocketServer } = require('ws');
 require('dotenv').config();
-
-const webhookSecret = process.env.TYPEFORM_WEBHOOK_SECRET;
 
 let webSocketClients = [];
 const app = express();
@@ -46,19 +43,6 @@ async function sendJoinNotification(thread, email) {
 
 async function sendLeaveNotification(thread, email) {
   await thread.send(`**${email} has left the chat**`);
-}
-
-async function getActiveDiscordUsers(guild) {
-  const activeUsers = [];
-  const members = await guild.members.fetch();
-  
-  members.forEach(member => {
-    if (member.presence?.status === 'online' && !member.user.bot) {
-      activeUsers.push(member.nickname || member.user.username);
-    }
-  });
-  
-  return activeUsers;
 }
 
 wss.on('connection', (ws) => {
@@ -250,106 +234,5 @@ app.post('/api/join-chat', async (req, res) => {
     res.status(500).send('Failed to send join notification');
   }
 });
-
-app.post('/webhook/typeform', async (request, response) => {
-  console.log('~> webhook received');
-  
-  const signature = request.headers['typeform-signature'];
-  const payload = request.rawBody;
-  const isValid = verifySignature(signature, payload);
-
-  console.log('isValid:', isValid);
-  if (!isValid) {
-    console.error('Webhook signature is not valid.');
-    return response.status(401).send('Unauthorized');
-  }
-
-  response.sendStatus(200);
-
-  const { event_type, form_response } = JSON.parse(payload);
-
-  if (event_type === 'form_response') {
-    // Extracting the answers and formatting them for Discord
-    const answers = form_response.answers.map(answer => {
-      const fieldDefinition = form_response.definition.fields.find(field => field.id === answer.field.id);
-      let responseText = '';
-
-      switch (answer.type) {
-        case 'text':
-        case 'email':
-        case 'phone_number':
-        case 'date':
-          responseText = answer[answer.type];
-          break;
-        case 'choice':
-          responseText = answer.choice.label;
-          break;
-        case 'choices':
-          responseText = answer.choices.labels.join(', ');
-          break;
-        default:
-          responseText = 'Unknown response type';
-      }
-
-      return {
-        title: fieldDefinition ? fieldDefinition.title : 'Unknown Field',
-        response: responseText
-      };
-    });
-
-    // Prepare the message content with better formatting
-    const messageContent = answers.map(answer => `**${answer.title}:**\n${answer.response}`).join('\n\n');
-    const formattedMessage = `
-**New Typeform Submission**
--------------------------
-${messageContent}
--------------------------
-    `;
-
-    // Send data to Discord channel
-    const guild = client.guilds.cache.get(process.env.DISCORD_GUILD_ID);
-    if (!guild) {
-      console.error('Guild not found');
-      return;
-    }
-
-    let channel = guild.channels.cache.find(ch => ch.name === 'typeform-responses');
-    if (!channel) {
-      try {
-        channel = await guild.channels.create({
-          name: 'typeform-responses',
-          type: ChannelType.GuildText,
-          permissionOverwrites: [
-            {
-              id: guild.roles.everyone.id,
-              allow: [PermissionsBitField.Flags.ViewChannel],
-            }
-          ]
-        });
-        console.log('Channel created: typeform-responses');
-      } catch (error) {
-        console.error('Error creating channel:', error);
-        return;
-      }
-    }
-
-    try {
-      await channel.send(formattedMessage);
-      console.log('Message sent to Discord channel');
-    } catch (error) {
-      console.error('Error sending message to Discord channel:', error);
-    }
-  }
-});
-
-
-const verifySignature = function(receivedSignature, payload) {
-  const hash = crypto
-    .createHmac('sha256', webhookSecret)
-    .update(payload)
-    .digest('base64');
-  
-  return receivedSignature === `sha256=${hash}`;
-};
 
 app.get('/', (req, res) => res.send('Backend server is running!'));
