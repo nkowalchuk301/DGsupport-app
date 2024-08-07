@@ -1,70 +1,122 @@
-# Getting Started with Create React App
+# DGsupport-app by NGK
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+## Overview
 
-## Available Scripts
+DGsupport-app is an application designed to direct message with clients through a Discord bot/webapp interface. The application is built with a React frontend and an Express backend, all containerized using Docker for deployment and scalability.
 
-In the project directory, you can run:
+### Features
+  - Webapp interface for users to login and speak with 'Support' (you). Support chat is handled using websocket/webhooks through a Discord bot. User login is handled by magic.link.
+  - 'support-channel' is automatically created when a user direct messages support from the webapp. Within that channel a thread is created labelled with the users email.
+  - Users can view and delete chat history.
+  - Notifications for when Users have joined and left the chat, via express-sessions.
+  - Audible notifications and Desktop notifications will be triggered for the user when using the webapp chat.
+  - Archive channel will be created in Discord if users delete chat history, archiving all of the chat history.
 
-### `npm start`
+### Framework
+  - Frontend: Node React.
+  - Backend: Express.
+  - Docker: Docker Compose.
+  - NGINX: Reverse proxy.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Installation
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+To get started with DGsupport-app, follow these steps:
 
-### `npm test`
+### 1. Clone the Repository:
+```
+git clone https://github.com/nkowalchuk301/DGsupport-app.git
+cd DGsupport-app
+```
+### 2. Configuration
+  - You will need to create a [Discord bot](https://discord.com/developers/docs/intro) for your Discord server and join it to that server, ensure it has proper permissions to handle channels, messages, message history, threads, etc. Note down your Discord bot's token.
+  - You will need to create a [Magic.link](https://magic.link/) account to handle logins. Note down you 'Public Key'.
+  - NGINX: Create an nginx.conf file in the /root directory. You need to adjust this with your settings or nothing will work.
+  - Environment Variables: Create an .env file. **Place your .env in both the ./root directory and in the /frontend directory**. You need to adjust this with your settings or nothing will work.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### .env Configuration
+```
+DISCORD_BOT_TOKEN=[TOKEN]
+DISCORD_CHANNEL_ID=[ID]
+DISCORD_GUILD_ID=[ID]
+//DISCORD BOT SHOULD CREATE THE CHANNELS. KEEPING THESE HERE FOR INFORMATIONAL PURPOSE.
+MAGIC_SECRET_KEY=[KEY](YOU PROBABLY WONT NEED THIS)
+REACT_APP_MAGIC_PUBLISH_KEY=[KEY]
+REACT_APP_API_URL=https://[PUBLIC DOMAIN/IP]
+REACT_APP_WS_URL=wss://[PUBLIC DOMAIN/IP]
+PORT=[PORT]
+SECRET_KEY=[I RECOMMEND YOU GENERATE A SHA-256 STRING/KEY]
+```
 
-### `npm run build`
+## nginx.conf Configuration
+```
+worker_processes 1;
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+events {
+    worker_connections 1024;
+}
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    sendfile on;
+    keepalive_timeout 65;
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+    server {
+        listen 8080;
+        server_name [DOMAIN/IP];
+        return 301 https://$host$request_uri;
+    }
 
-### `npm run eject`
+    server {
+        listen 443 ssl;
+        server_name [DOMAIN/IP];
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+        ssl_certificate /etc/nginx/certificates/[CERTNAME].crt;
+        ssl_certificate_key /etc/nginx/certificates/[CERTKEY].key;
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+        location / {
+            proxy_pass http://frontend:5000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+        }
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+        location /api/ {
+            proxy_pass http://backend:5000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+        location /ws {
+            proxy_pass http://backend:5000;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+        }
+    }
+```
+### 3. Build
+Ensure Docker and Docker Compose are installed on your system, then run:
+```
+docker-compose up --build
+```
+### Usage
 
-## Learn More
+Once the application is running, access the frontend via http://localhost:3000 (or your domain/ip that you set) and attempt login. You should recieve an email from magic.link to approve the login. Navigate 'Support' and test the chat. You should receive a notification in the Discord server that you joined your Discord bot to. You should now be able to talk back and forth via the webapp and Discord as a secure direct messaging platform.
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### Contributing
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Contributions are welcome! Please fork the repository and submit pull requests for any enhancements or bug fixes. I will be actively working on this project but development will be slow.
 
-### Code Splitting
+### License
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+This project is licensed under the MIT License.
 
-### Analyzing the Bundle Size
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
